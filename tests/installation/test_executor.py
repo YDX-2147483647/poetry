@@ -909,7 +909,9 @@ Package operations: 1 install, 0 updates, 0 removals
     assert mock_pip_install.call_args[1].get("editable") is False
 
 
+@pytest.mark.parametrize("failing_method", ["build", "get_requires_for_build"])
 def test_build_backend_errors_are_reported_correctly_if_caused_by_subprocess(
+    failing_method: str,
     mocker: MockerFixture,
     config: Config,
     pool: RepositoryPool,
@@ -923,7 +925,7 @@ def test_build_backend_errors_are_reported_correctly_if_caused_by_subprocess(
     error = BuildBackendException(
         CalledProcessError(1, ["pip"], output=b"Error on stdout")
     )
-    mocker.patch.object(ProjectBuilder, "build", side_effect=error)
+    mocker.patch.object(ProjectBuilder, failing_method, side_effect=error)
     io.set_verbosity(Verbosity.NORMAL)
 
     executor = Executor(env, pool, config, io)
@@ -952,6 +954,14 @@ Package operations: 1 install, 0 updates, 0 removals
   • Installing simple-project (1.2.3 {directory_package.source_url})
 
   ChefBuildError
+
+  Note: This error originates from the build backend, and is likely not a problem with \
+poetry but the concerning package not supporting PEP 517 builds. You can verify this \
+by running 'pip wheel --use-pep517 <concerning package>'.
+  \
+
+  Backend operation failed: CalledProcessError(1, ['pip'])
+  \
 
   Error on stdout
 """

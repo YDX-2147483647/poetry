@@ -121,14 +121,15 @@ class Chef:
                 runner=quiet_subprocess_runner,
             )
             env.install(builder.build_system_requires)
-            env.install(
-                builder.build_system_requires | builder.get_requires_for_build("wheel")
-            )
 
             stdout = StringIO()
             error: Exception | None = None
             try:
                 with redirect_stdout(stdout):
+                    env.install(
+                        builder.build_system_requires
+                        | builder.get_requires_for_build("wheel")
+                    )
                     path = Path(
                         builder.build(
                             "wheel" if not editable else "editable",
@@ -136,17 +137,24 @@ class Chef:
                         )
                     )
             except BuildBackendException as e:
+                disclaimer = (
+                    "Note: This error originates from the build backend,"
+                    " and is likely not a problem with poetry"
+                    " but the concerning package not supporting PEP 517 builds."
+                    " You can verify this by running"
+                    " 'pip wheel --use-pep517 <concerning package>'."
+                )
+                message_parts = [disclaimer, str(e)]
                 if isinstance(e.exception, CalledProcessError) and (
                     e.exception.stdout is not None or e.exception.stderr is not None
                 ):
-                    message = (
+                    message_parts.append(
                         e.exception.stderr.decode()
                         if e.exception.stderr is not None
                         else e.exception.stdout.decode()
                     )
-                    error = ChefBuildError(message)
-                else:
-                    error = ChefBuildError(str(e))
+
+                error = ChefBuildError("\n\n".join(message_parts))
 
             if error is not None:
                 raise error from None
